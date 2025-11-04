@@ -26,17 +26,16 @@ class NextToken(nn.Module):
 def load_model(model_name):
     try:
         checkpoint = torch.load(f'models/model_{model_name}.pth', map_location='cpu')
-        # Map model variants to their hidden sizes
         hidden_sizes = {
-            "Small": 256,
-            "Medium": 512, 
-            "Large": 1024
+            "small": 256,
+            "medium": 512, 
+            "large": 1024
         }
         model = NextToken(
             block_size=checkpoint['block_size'],
             vocab_size=len(checkpoint['wtoi']),
             emb_dim=checkpoint['emb_dim'],
-            hidden_size_1=hidden_sizes[model_name],  # Use mapped size
+            hidden_size_1=hidden_sizes[model_name],
             hidden_size_2=0,
             activation=torch.tanh
         )
@@ -66,10 +65,7 @@ def predict_next_words(model, wtoi, itow, block_size, context_words, num_words=1
         for _ in range(num_words):
             context_tensor = torch.tensor([context_indices])
             logits = model(context_tensor)
-            
-            if temperature != 1.0:
-                logits = logits / temperature
-            
+            logits = logits / temperature
             probs = torch.softmax(logits[0], dim=0)
             next_idx = torch.multinomial(probs, 1).item()
             next_word = itow[next_idx]
@@ -106,19 +102,19 @@ temperature = st.sidebar.slider(
 num_words = st.slider("Words to generate", 1, 50, 15)
 
 # Load selected model
-try:
-    model, wtoi, itow, block_size = load_model(model_variant)
-    
-    st.sidebar.info(f"""
-    **Model Info:**
-    - Context window: {block_size} words
-    - Vocabulary size: {len(wtoi)} words
-    - Embedding dim: {model.emb.embedding_dim}
-    """)
-    
-except FileNotFoundError:
-    st.error("Model files not found. Please train the models first.")
+model, wtoi, itow, block_size = load_model(model_variant)
+
+# Check if model loaded successfully
+if model is None or wtoi is None:
+    st.error("Model files not found or failed to load. Please train the models first.")
     st.stop()
+
+# Display model info
+st.sidebar.info(f"""
+**Model Info:**
+- Context window: {block_size} words
+- Embedding dim: {model.emb.embedding_dim}
+""")
 
 # Main input area
 st.header("Text Input")

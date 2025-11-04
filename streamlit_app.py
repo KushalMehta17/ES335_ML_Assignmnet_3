@@ -77,18 +77,79 @@ def predict_next_words(model, wtoi, itow, block_size, context_words, num_words=1
     return ' '.join(generated)
 
 # Streamlit UI
-st.title("Next Word Predictor")
-st.write("Generate text using AI models trained on War and Peace")
+st.title("Next Word Predictor!")
+st.write("Generate text using AI models trained on the lengendary writer Leo Tolstoy's Novel - War and Peace!")
 
-model_variant = st.selectbox("Choose Model", ["small", "medium", "large"])
-temperature = st.slider("Temperature", 0.1, 2.0, 1.0, 0.1)
+# Sidebar controls
+st.sidebar.header("Model Configuration")
+
+model_variant = st.sidebar.selectbox(
+    "Model Variant",
+    ["Small", "Medium", "Large"],
+    help="Small: faster, less accurate | Large: slower, more accurate"
+)
+
+temperature = st.sidebar.slider(
+    "Temperature",
+    min_value=0.1,
+    max_value=2.0,
+    value=1.0,
+    step=0.1,
+    help="Lower = more predictable+repetitive, Higher = more creative+gibberish"
+)
 num_words = st.slider("Words to generate", 1, 50, 15)
 
-user_input = st.text_area("Enter your text:", "The prince said")
-
-if st.button("Generate"):
+# Load selected model
+try:
     model, wtoi, itow, block_size = load_model(model_variant)
-    if model:
-        result = predict_next_words(model, wtoi, itow, block_size, user_input, num_words, temperature)
-        st.write("**Generated text:**")
-        st.success(result)
+    
+    st.sidebar.info(f"""
+    **Model Info:**
+    - Context window: {block_size} words
+    - Vocabulary size: {len(wtoi)} words
+    - Embedding dim: {model.emb.embedding_dim}
+    """)
+    
+except FileNotFoundError:
+    st.error("Model files not found. Please train the models first.")
+    st.stop()
+
+# Main input area
+st.header("Text Input")
+user_input = st.text_area(
+    "Enter your text prompt:",
+    value="The prince said",
+    height=100,
+    help=f"Model will use last {block_size} words as context"
+)
+
+if st.button("Generate Text", type="primary"):
+    if user_input.strip():
+        with st.spinner("Generating..."):
+            try:
+                result = predict_next_words(
+                    model, wtoi, itow, block_size,
+                    user_input, num_words, temperature
+                )
+                
+                st.header("Generated Text")
+                st.write(result)
+                
+                # Show context used
+                context_words = user_input.split()[-block_size:]
+                st.caption(f"Context used: {' '.join(context_words)}")
+                
+            except Exception as e:
+                st.error(f"Error during generation: {str(e)}")
+    else:
+        st.warning("Please enter some text first")
+
+# Model comparison info
+st.sidebar.header("About Model Variants")
+st.sidebar.info("""
+**Small**: 3-word context, 32-dim embeddings  
+**Medium**: 5-word context, 64-dim embeddings  
+**Large**: 8-word context, 128-dim embeddings
+
+All models trained on Tolstoy's War and Peace
+""")

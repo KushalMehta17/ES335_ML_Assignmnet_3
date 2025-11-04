@@ -99,7 +99,11 @@ temperature = st.sidebar.slider(
     step=0.1,
     help="Lower = more predictable+repetitive, Higher = more creative+gibberish"
 )
-num_words = st.slider("Words to generate", 1, 50, 15)
+num_words = st.sidebar.slider("Words to generate", 
+                             min_value=5,
+                            max_value=50,
+                            value=15,
+                            step=1)
 
 # Load selected model
 model, wtoi, itow, block_size = load_model(model_variant)

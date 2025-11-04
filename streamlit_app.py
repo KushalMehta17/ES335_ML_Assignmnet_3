@@ -1,7 +1,160 @@
+# import streamlit as st
+# import torch
+# import torch.nn as nn
+# import os
+
+# st.set_page_config(page_title="Next Word Predictor")
+
+# class NextToken(nn.Module):
+#     def __init__(self, block_size, vocab_size, emb_dim, hidden_size_1, hidden_size_2, activation):
+#         super().__init__()
+#         self.emb = nn.Embedding(vocab_size, emb_dim)
+#         self.lin1 = nn.Linear(block_size * emb_dim, hidden_size_1)
+#         self.lin3 = nn.Linear(hidden_size_1, vocab_size)
+#         self.activation = activation
+#         self.dropout = nn.Dropout(0.5)
+
+#     def forward(self, x):
+#         x = self.emb(x)
+#         x = x.view(x.shape[0], -1)
+#         x = self.activation(self.lin1(x))
+#         x = self.dropout(x)
+#         x = self.lin3(x)
+#         return x
+
+# @st.cache_resource
+# def load_model(model_name):
+#     try:
+#         checkpoint = torch.load(f'models/model_{model_name}.pth', map_location='cpu')
+#         hidden_sizes = {
+#             "small": 256,
+#             "medium": 512, 
+#             "large": 1024
+#         }
+#         model = NextToken(
+#             block_size=checkpoint['block_size'],
+#             vocab_size=len(checkpoint['wtoi']),
+#             emb_dim=checkpoint['emb_dim'],
+#             hidden_size_1=hidden_sizes[model_name],
+#             hidden_size_2=0,
+#             activation=torch.tanh
+#         )
+#         model.load_state_dict(checkpoint['model_state'])
+#         model.eval()
+#         return model, checkpoint['wtoi'], checkpoint['itow'], checkpoint['block_size']
+#     except Exception as e:
+#         st.error(f"Error loading model: {e}")
+#         return None, None, None, None
+        
+# def predict_next_words(model, wtoi, itow, block_size, context_words, num_words=10, temperature=1.0):
+#     context_indices = []
+#     for word in context_words.split():
+#         if word in wtoi:
+#             context_indices.append(wtoi[word])
+#         else:
+#             context_indices.append(wtoi['#'])
+    
+#     if len(context_indices) < block_size:
+#         context_indices = [wtoi['#']] * (block_size - len(context_indices)) + context_indices
+#     else:
+#         context_indices = context_indices[-block_size:]
+    
+#     generated = context_words.split()
+    
+#     with torch.no_grad():
+#         for _ in range(num_words):
+#             context_tensor = torch.tensor([context_indices])
+#             logits = model(context_tensor)
+#             logits = logits / temperature
+#             probs = torch.softmax(logits[0], dim=0)
+#             next_idx = torch.multinomial(probs, 1).item()
+#             next_word = itow[next_idx]
+            
+#             generated.append(next_word)
+#             context_indices = context_indices[1:] + [next_idx]
+            
+#             if next_word in ['.', '!', '?']:
+#                 break
+    
+#     return ' '.join(generated)
+
+# # Streamlit UI
+# st.title("Next Word Predictor!")
+# st.write("Generate text using AI models trained on the lengendary writer Leo Tolstoy's Novel - War and Peace!")
+
+# # Sidebar controls
+# st.sidebar.header("Model Configuration")
+
+# model_variant = st.sidebar.selectbox(
+#     "Model Variant",
+#     ["small", "medium", "large"],
+#     help="Small: faster, less accurate | Large: slower, more accurate"
+# )
+
+# temperature = st.sidebar.slider(
+#     "Temperature",
+#     min_value=0.1,
+#     max_value=2.0,
+#     value=1.0,
+#     step=0.1,
+#     help="Lower = more predictable+repetitive, Higher = more creative+gibberish"
+# )
+# num_words = st.sidebar.slider("Words to generate", 
+#                              min_value=5,
+#                             max_value=50,
+#                             value=15,
+#                             step=1)
+
+# # Load selected model
+# model, wtoi, itow, block_size = load_model(model_variant)
+
+# # Check if model loaded successfully
+# if model is None or wtoi is None:
+#     st.error("Model files not found or failed to load. Please train the models first.")
+#     st.stop()
+
+# # Display model info
+# st.sidebar.info(f"""
+# **Selected Model Info:**
+# - Context window: {block_size} words
+# - Embedding dimensions: {model.emb.embedding_dim}
+# """)
+
+# # Main input area
+# st.header("Text Input")
+# user_input = st.text_area(
+#     "Enter your text prompt:",
+#     value="The prince said",
+#     height=100,
+#     help=f"Model will use last {block_size} words as context"
+# )
+
+# if st.button("Generate Text", type="primary"):
+#     if user_input.strip():
+#         with st.spinner("Generating..."):
+#             try:
+#                 result = predict_next_words(
+#                     model, wtoi, itow, block_size,
+#                     user_input, num_words, temperature
+#                 )
+                
+#                 st.header("Generated Text")
+#                 st.write(result)
+                
+#                 # Show context used
+#                 context_words = user_input.split()[-block_size:]
+#                 st.caption(f"Context used: {' '.join(context_words)}")
+                
+#             except Exception as e:
+#                 st.error(f"Error during generation: {str(e)}")
+#     else:
+#         st.warning("Please enter some text first")
+
 import streamlit as st
 import torch
 import torch.nn as nn
 import os
+import random
 
 st.set_page_config(page_title="Next Word Predictor")
 
@@ -23,21 +176,32 @@ class NextToken(nn.Module):
         return x
 
 @st.cache_resource
-def load_model(model_name):
+def load_model(model_name, activation_name):
     try:
         checkpoint = torch.load(f'models/model_{model_name}.pth', map_location='cpu')
+        
+        # Map activation functions
+        activation_map = {
+            "tanh": torch.tanh,
+            "relu": torch.relu,
+            "sigmoid": torch.sigmoid,
+            "leaky_relu": torch.nn.functional.leaky_relu
+        }
+        
+        # Map model variants to their hidden sizes
         hidden_sizes = {
             "small": 256,
             "medium": 512, 
             "large": 1024
         }
+        
         model = NextToken(
             block_size=checkpoint['block_size'],
             vocab_size=len(checkpoint['wtoi']),
             emb_dim=checkpoint['emb_dim'],
             hidden_size_1=hidden_sizes[model_name],
             hidden_size_2=0,
-            activation=torch.tanh
+            activation=activation_map[activation_name]
         )
         model.load_state_dict(checkpoint['model_state'])
         model.eval()
@@ -45,17 +209,37 @@ def load_model(model_name):
     except Exception as e:
         st.error(f"Error loading model: {e}")
         return None, None, None, None
-        
-def predict_next_words(model, wtoi, itow, block_size, context_words, num_words=10, temperature=1.0):
+
+def predict_next_words(model, wtoi, itow, block_size, context_words, num_words=10, temperature=1.0, random_seed=None):
+    # Set random seed for reproducibility
+    if random_seed is not None:
+        torch.manual_seed(random_seed)
+        random.seed(random_seed)
+    
     context_indices = []
+    unknown_words = []
+    
+    # Handle out-of-vocabulary words
     for word in context_words.split():
         if word in wtoi:
             context_indices.append(wtoi[word])
         else:
-            context_indices.append(wtoi['#'])
+            if '#' in wtoi:  
+                context_indices.append(wtoi['#'])
+                unknown_words.append(word)
+            else:
+                # Use most common word or random word from vocabulary
+                context_indices.append(wtoi.get('the', 0))  # Use 'the' as fallback
+                unknown_words.append(word)
     
+    # Show warning for unknown words
+    if unknown_words:
+        st.warning(f"Words not in vocabulary and replaced: {', '.join(set(unknown_words))}")
+    
+    # Pad or truncate context to block_size
     if len(context_indices) < block_size:
-        context_indices = [wtoi['#']] * (block_size - len(context_indices)) + context_indices
+        padding_token = wtoi.get('#', wtoi.get('the', 0))
+        context_indices = [padding_token] * (block_size - len(context_indices)) + context_indices
     else:
         context_indices = context_indices[-block_size:]
     
@@ -65,7 +249,10 @@ def predict_next_words(model, wtoi, itow, block_size, context_words, num_words=1
         for _ in range(num_words):
             context_tensor = torch.tensor([context_indices])
             logits = model(context_tensor)
-            logits = logits / temperature
+            
+            if temperature != 1.0:
+                logits = logits / temperature
+            
             probs = torch.softmax(logits[0], dim=0)
             next_idx = torch.multinomial(probs, 1).item()
             next_word = itow[next_idx]
@@ -73,6 +260,7 @@ def predict_next_words(model, wtoi, itow, block_size, context_words, num_words=1
             generated.append(next_word)
             context_indices = context_indices[1:] + [next_idx]
             
+            # Stop if we hit punctuation
             if next_word in ['.', '!', '?']:
                 break
     
@@ -80,7 +268,7 @@ def predict_next_words(model, wtoi, itow, block_size, context_words, num_words=1
 
 # Streamlit UI
 st.title("Next Word Predictor!")
-st.write("Generate text using AI models trained on the lengendary writer Leo Tolstoy's Novel - War and Peace!")
+st.write("Generate text using AI models trained on the legendary writer Leo Tolstoy's Novel - War and Peace!")
 
 # Sidebar controls
 st.sidebar.header("Model Configuration")
@@ -91,6 +279,12 @@ model_variant = st.sidebar.selectbox(
     help="Small: faster, less accurate | Large: slower, more accurate"
 )
 
+activation_function = st.sidebar.selectbox(
+    "Activation Function",
+    ["tanh", "relu", "sigmoid", "leaky_relu"],
+    help="Choose the activation function for the neural network"
+)
+
 temperature = st.sidebar.slider(
     "Temperature",
     min_value=0.1,
@@ -99,14 +293,19 @@ temperature = st.sidebar.slider(
     step=0.1,
     help="Lower = more predictable+repetitive, Higher = more creative+gibberish"
 )
-num_words = st.sidebar.slider("Words to generate", 
-                             min_value=5,
-                            max_value=50,
-                            value=15,
-                            step=1)
 
-# Load selected model
-model, wtoi, itow, block_size = load_model(model_variant)
+random_seed = st.sidebar.number_input(
+    "Random Seed",
+    min_value=0,
+    max_value=1000000,
+    value=42,
+    help="Set random seed for reproducible results (0 for random)"
+)
+
+num_words = st.slider("Words to generate", 1, 50, 15)
+
+# Load selected model with chosen activation function
+model, wtoi, itow, block_size = load_model(model_variant, activation_function)
 
 # Check if model loaded successfully
 if model is None or wtoi is None:
@@ -115,9 +314,11 @@ if model is None or wtoi is None:
 
 # Display model info
 st.sidebar.info(f"""
-**Selected Model Info:**
+**Model Info:**
 - Context window: {block_size} words
-- Embedding dimensions: {model.emb.embedding_dim}
+- Embedding dim: {model.emb.embedding_dim}
+- Activation: {activation_function}
+- Vocabulary size: {len(wtoi)} words
 """)
 
 # Main input area
@@ -126,20 +327,28 @@ user_input = st.text_area(
     "Enter your text prompt:",
     value="The prince said",
     height=100,
-    help=f"Model will use last {block_size} words as context"
+    help=f"Model will use last {block_size} words as context. Unknown words will be replaced."
 )
 
 if st.button("Generate Text", type="primary"):
     if user_input.strip():
         with st.spinner("Generating..."):
             try:
+                # Use 0 as None for random behavior
+                seed = random_seed if random_seed != 0 else None
+                
                 result = predict_next_words(
                     model, wtoi, itow, block_size,
-                    user_input, num_words, temperature
+                    user_input, num_words, temperature, seed
                 )
                 
                 st.header("Generated Text")
-                st.write(result)
+                st.text_area(
+                    "Generated Text:",
+                    value=result,
+                    height=150,
+                    key="generated_text"
+                )
                 
                 # Show context used
                 context_words = user_input.split()[-block_size:]
@@ -149,3 +358,26 @@ if st.button("Generate Text", type="primary"):
                 st.error(f"Error during generation: {str(e)}")
     else:
         st.warning("Please enter some text first")
+
+# Model comparison info
+st.sidebar.header("About Model Variants")
+st.sidebar.info("""
+**Small**: 3-word context, 32-dim embeddings  
+
+**Medium**: 5-word context, 64-dim embeddings  
+
+**Large**: 8-word context, 128-dim embeddings
+
+All models trained on Tolstoy's War and Peace
+""")
+
+with st.expander("How out-of-vocabulary words are handled"):
+    st.write("""
+    **When you enter words not in the model's vocabulary:**
+    
+    1. **Unknown Token Replacement**: Common words like 'the' are used as fallback
+    2. **User Notification**: You'll see a warning showing which words were replaced
+    3. **Context Preservation**: The original context length is maintained through padding when needed
+    
+    This ensures the model can still generate text even with unfamiliar input words.
+    """)

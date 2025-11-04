@@ -111,9 +111,9 @@ if model is None or wtoi is None:
 
 # Display model info
 st.sidebar.info(f"""
-**Model Info:**
+**Selected Model Info:**
 - Context window: {block_size} words
-- Embedding dim: {model.emb.embedding_dim}
+- Embedding dimensions: {model.emb.embedding_dim}
 """)
 
 # Main input area
@@ -145,13 +145,3 @@ if st.button("Generate Text", type="primary"):
                 st.error(f"Error during generation: {str(e)}")
     else:
         st.warning("Please enter some text first")
-
-# Model comparison info
-st.sidebar.header("About Model Variants")
-st.sidebar.info("""
-**Small**: 3-word context, 32-dim embeddings  
-**Medium**: 5-word context, 64-dim embeddings  
-**Large**: 8-word context, 128-dim embeddings
-
-All models trained on Tolstoy's War and Peace
-""")

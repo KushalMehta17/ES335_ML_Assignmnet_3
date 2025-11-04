@@ -182,10 +182,10 @@ def load_model(model_name, activation_name):
         
         # Map activation functions
         activation_map = {
-            "tanh": torch.tanh,
-            "relu": torch.relu,
-            "sigmoid": torch.sigmoid,
-            "leaky_relu": torch.nn.functional.leaky_relu
+            "Tanh": torch.tanh,
+            "ReLu": torch.relu,
+            "Sigmoid": torch.sigmoid,
+            "Leaky_ReLu": torch.nn.functional.leaky_relu
         }
         
         # Map model variants to their hidden sizes
@@ -311,15 +311,6 @@ model, wtoi, itow, block_size = load_model(model_variant, activation_function)
 if model is None or wtoi is None:
     st.error("Model files not found or failed to load. Please train the models first.")
     st.stop()
-
-# Display model info
-st.sidebar.info(f"""
-**Model Info:**
-- Context window: {block_size} words
-- Embedding dim: {model.emb.embedding_dim}
-- Activation: {activation_function}
-- Vocabulary size: {len(wtoi)} words
-""")
 
 # Main input area
 st.header("Text Input")

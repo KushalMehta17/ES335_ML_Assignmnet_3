@@ -281,7 +281,7 @@ model_variant = st.sidebar.selectbox(
 
 activation_function = st.sidebar.selectbox(
     "Activation Function",
-    ["tanh", "relu", "sigmoid", "leaky_relu"],
+    ["Tanh", "ReLu", "Sigmoid", "Leaky_ReLu"],
     help="Choose the activation function for the neural network"
 )
 

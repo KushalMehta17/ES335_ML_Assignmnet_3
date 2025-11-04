@@ -67,22 +67,16 @@ def predict_next_words(model, wtoi, itow, block_size, context_words, num_words=1
     context_indices = []
     unknown_words = []
     
-    # Handle out-of-vocabulary words
     for word in context_words.split():
-        if word in wtoi:
-            context_indices.append(wtoi[word])
+        if word.lower() in wtoi:
+            context_indices.append(wtoi[word.lower()])
         else:
             if '#' in wtoi:  
                 context_indices.append(wtoi['#'])
                 unknown_words.append(word)
             else:
-                # Use most common word or random word from vocabulary
-                context_indices.append(wtoi.get('the', 0))  # Use 'the' as fallback
+                context_indices.append(wtoi.get('the', 0))
                 unknown_words.append(word)
-    
-    # Show warning for unknown words
-    if unknown_words:
-        st.warning(f"Words not in vocabulary and replaced: {', '.join(set(unknown_words))}")
     
     # Pad or truncate context to block_size
     if len(context_indices) < block_size:

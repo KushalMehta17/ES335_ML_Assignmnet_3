@@ -26,11 +26,17 @@ class NextToken(nn.Module):
 def load_model(model_name):
     try:
         checkpoint = torch.load(f'models/model_{model_name}.pth', map_location='cpu')
+        # Map model variants to their hidden sizes
+        hidden_sizes = {
+            "Small": 256,
+            "Medium": 512, 
+            "Large": 1024
+        }
         model = NextToken(
             block_size=checkpoint['block_size'],
             vocab_size=len(checkpoint['wtoi']),
             emb_dim=checkpoint['emb_dim'],
-            hidden_size_1=512,
+            hidden_size_1=hidden_sizes[model_name],  # Use mapped size
             hidden_size_2=0,
             activation=torch.tanh
         )
@@ -40,7 +46,7 @@ def load_model(model_name):
     except Exception as e:
         st.error(f"Error loading model: {e}")
         return None, None, None, None
-
+        
 def predict_next_words(model, wtoi, itow, block_size, context_words, num_words=10, temperature=1.0):
     context_indices = []
     for word in context_words.split():

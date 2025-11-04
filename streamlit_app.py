@@ -85,7 +85,7 @@ st.sidebar.header("Model Configuration")
 
 model_variant = st.sidebar.selectbox(
     "Model Variant",
-    ["Small", "Medium", "Large"],
+    ["small", "medium", "large"],
     help="Small: faster, less accurate | Large: slower, more accurate"
 )
 
